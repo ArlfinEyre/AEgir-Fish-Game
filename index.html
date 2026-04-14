@@ -71,7 +71,7 @@
     <canvas id="gameCanvas" width="1920" height="1080"></canvas>
     
     <div id="hud">
-        HP: <span id="hp-display">3</span> | Score 阿戈尔层数: <span id="score-display">0</span>
+        HP: <span id="hp-display">5</span> | Score 阿戈尔层数: <span id="score-display">0</span>
     </div>
 
     <div id="game-over-screen" class="ui-layer">
@@ -81,10 +81,10 @@
             <h3>排行榜 (Top 5)</h3>
             <ol id="leaderboard-list" style="text-align: left; font-size: 1.2vw;"></ol>
         </div>
-        <button onclick="startGame()">重新开始 (按空格键)</button>
+        <button id="restart-button">重新开始 (按空格键)</button>
     </div>
 </div>
 
-<script src="game.js"></script>
+<script type="module" src="src/game.js"></script>
 </body>
 </html>

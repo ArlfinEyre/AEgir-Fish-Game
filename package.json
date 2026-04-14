@@ -1,0 +1,11 @@
+{
+  "name": "aegir-fish-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "validate": "node scripts/validate-project.mjs",
+    "check": "npm run test && npm run validate"
+  }
+}
