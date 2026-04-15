@@ -26,7 +26,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
+        env:
+          NPM_CONFIG_INCLUDE: optional
       - run: npm run check
 
   deploy:
@@ -45,7 +47,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
+        env:
+          NPM_CONFIG_INCLUDE: optional
       - run: npm run build
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
