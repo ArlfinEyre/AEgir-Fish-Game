@@ -1,4 +1,4 @@
-import { collectAssetUrls, updateLoadingText } from "./assets.js";
+import { loadGameAssets, updateLoadingText } from "./assets.js";
 import {
   FIXED_TIMESTEP_MS,
   GAME_CONFIG,
@@ -11,7 +11,6 @@ import {
 } from "./config.js";
 import { Entity } from "./entities/entity.js";
 import { Player } from "./entities/player.js";
-import { PIXI } from "./runtime/pixi.js";
 import { checkCollision } from "./systems/collision.js";
 import { saveScore } from "./systems/leaderboard.js";
 import {
@@ -250,9 +249,7 @@ function gameLoop() {
 }
 
 function loadGame() {
-  const allUrls = collectAssetUrls(GAME_CONFIG);
-
-  PIXI.Assets.load(allUrls, updateLoadingText)
+  loadGameAssets(GAME_CONFIG, updateLoadingText)
     .then((resources) => {
       loadedResources = resources;
       loadingScreen.style.display = "none";
