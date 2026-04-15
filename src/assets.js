@@ -1,22 +1,20 @@
-import { FISH_VARIANTS } from "./config.js";
+export function collectAssetUrls(gameConfig) {
+  const urls = new Set([
+    gameConfig.bgUrl,
+    gameConfig.scoreUIUrl,
+    gameConfig.player.url,
+  ]);
 
-function createImage(src) {
-  const image = new Image();
-  image.src = src;
-  return image;
+  gameConfig.fishVariants.forEach((variant) => urls.add(variant.url));
+  gameConfig.rewardVariants.forEach((variant) => urls.add(variant.url));
+  gameConfig.punishVariants.forEach((variant) => urls.add(variant.url));
+
+  return Array.from(urls);
 }
 
-export function createAssets() {
-  const fishVariants = FISH_VARIANTS.map((variant) => ({
-    ...variant,
-    img: createImage(variant.url),
-  }));
-
-  return {
-    bg: createImage("assets/bg.jpg"),
-    player: createImage("assets/player.png"),
-    reward: createImage("assets/special_reward.png"),
-    punish: createImage("assets/special_punish.png"),
-    fishVariants,
-  };
+export function updateLoadingText(progress) {
+  const loadingText = document.getElementById("loading-text");
+  if (loadingText) {
+    loadingText.innerText = `资源加载中 (${Math.round(progress * 100)}%)...`;
+  }
 }

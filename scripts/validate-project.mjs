@@ -11,6 +11,7 @@ const requiredFiles = [
   "src/systems/collision.js",
   "src/systems/rules.js",
   "src/systems/spawn.js",
+  "src/systems/view.js",
   ".gitignore",
 ];
 

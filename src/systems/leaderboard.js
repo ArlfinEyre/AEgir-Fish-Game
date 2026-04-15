@@ -1,4 +1,8 @@
-const STORAGE_KEY = "fishGameScores";
+import { LEADERBOARD_STORAGE_KEY } from "../config.js";
+
+export function loadScores(storage = window.localStorage) {
+  return JSON.parse(storage.getItem(LEADERBOARD_STORAGE_KEY)) || [];
+}
 
 export function saveScore(score, storage = window.localStorage) {
   const board = loadScores(storage);
@@ -6,11 +10,6 @@ export function saveScore(score, storage = window.localStorage) {
   board.sort((a, b) => b - a);
 
   const topScores = board.slice(0, 5);
-  storage.setItem(STORAGE_KEY, JSON.stringify(topScores));
-
+  storage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(topScores));
   return topScores;
-}
-
-export function loadScores(storage = window.localStorage) {
-  return JSON.parse(storage.getItem(STORAGE_KEY)) || [];
 }

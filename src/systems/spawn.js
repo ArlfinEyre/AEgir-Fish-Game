@@ -1,17 +1,7 @@
-import { ENTITY_TYPES } from "../config.js";
+import { SPAWN_RULES } from "../config.js";
 
-export function getSpawnTypes(spawnTimer) {
-  const spawnTypes = [];
-
-  if (spawnTimer % 50 === 0) {
-    spawnTypes.push(ENTITY_TYPES.FISH);
-  }
-  if (spawnTimer % 800 === 0) {
-    spawnTypes.push(ENTITY_TYPES.REWARD);
-  }
-  if (spawnTimer % 900 === 0) {
-    spawnTypes.push(ENTITY_TYPES.PUNISH);
-  }
-
-  return spawnTypes;
+export function getSpawnCategories(spawnTimer, delta) {
+  return SPAWN_RULES.filter(
+    (rule) => spawnTimer % rule.interval < delta,
+  ).map((rule) => rule.category);
 }

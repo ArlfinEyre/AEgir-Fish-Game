@@ -1,38 +1,69 @@
-import { createAssets } from "./assets.js";
-import { INITIAL_HP, INITIAL_SCORE } from "./config.js";
+import { collectAssetUrls, updateLoadingText } from "./assets.js";
+import {
+  ENTITY_CATEGORIES,
+  GAME_CONFIG,
+  GAME_HEIGHT,
+  GAME_WIDTH,
+  INITIAL_HP,
+  INITIAL_SCORE,
+  INITIAL_TIME_LEFT,
+  PLAYER_INVINCIBILITY_FRAMES,
+} from "./config.js";
 import { Entity } from "./entities/entity.js";
 import { Player } from "./entities/player.js";
 import { checkCollision } from "./systems/collision.js";
 import { saveScore } from "./systems/leaderboard.js";
-import { resolveEntityCollision } from "./systems/rules.js";
-import { getSpawnTypes } from "./systems/spawn.js";
+import {
+  applyCollisionResult,
+  getCollisionOutcome,
+} from "./systems/rules.js";
+import { getSpawnCategories } from "./systems/spawn.js";
+import {
+  createApplication,
+  createBackground,
+  createHpBackground,
+  createHpFill,
+  createHpText,
+  createScoreDisplay,
+  createVisualObjectFactory,
+  removeView,
+} from "./systems/view.js";
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-const scoreDisplay = document.getElementById("score-display");
-const hpDisplay = document.getElementById("hp-display");
+const gameWrapper = document.getElementById("game-wrapper");
+const timeDisplay = document.getElementById("time-display");
 const gameOverScreen = document.getElementById("game-over-screen");
 const finalScoreDisplay = document.getElementById("final-score");
 const leaderboardList = document.getElementById("leaderboard-list");
 const restartButton = document.getElementById("restart-button");
+const loadingScreen = document.getElementById("loading-screen");
+const loadingText = document.getElementById("loading-text");
 
-const assets = createAssets();
+const app = createApplication({ width: GAME_WIDTH, height: GAME_HEIGHT });
+gameWrapper.appendChild(app.view);
+
 const keys = {};
+let loadedResources = {};
+let createVisualObject;
+let player;
+let scoreDisplay;
 
 const state = {
-  isGameOver: false,
+  isGameOver: true,
   score: INITIAL_SCORE,
   hp: INITIAL_HP,
   entities: [],
-  player: null,
   spawnTimer: 0,
+  timeLeft: INITIAL_TIME_LEFT,
 };
 
 window.addEventListener("keydown", (event) => {
   keys[event.key.toLowerCase()] = true;
 
-  if (event.code === "Space" && state.isGameOver) {
+  if (
+    event.code === "Space" &&
+    state.isGameOver &&
+    Object.keys(loadedResources).length > 0
+  ) {
     startGame();
   }
 });
@@ -45,21 +76,44 @@ restartButton.addEventListener("click", startGame);
 
 function renderLeaderboard(scores) {
   leaderboardList.innerHTML = "";
-
   scores.forEach((score, index) => {
     leaderboardList.innerHTML += `<li>第 ${index + 1} 名: ${score} 分</li>`;
   });
 }
 
-function startGame() {
-  gameOverScreen.style.display = "none";
-  state.player = new Player(assets);
-  state.entities = [];
+function resetState() {
   state.score = INITIAL_SCORE;
   state.hp = INITIAL_HP;
   state.spawnTimer = 0;
+  state.timeLeft = INITIAL_TIME_LEFT;
   state.isGameOver = false;
-  gameLoop();
+}
+
+function destroyEntities() {
+  state.entities.forEach((entity) => entity.destroy(removeView));
+  state.entities = [];
+}
+
+function createPlayer() {
+  player = new Player({
+    createVisualObject,
+    app,
+    hpBgFactory: createHpBackground,
+    hpFillFactory: createHpFill,
+    hpTextFactory: createHpText,
+  });
+}
+
+function startGame() {
+  gameOverScreen.style.display = "none";
+
+  if (player) {
+    player.destroy(removeView, app);
+  }
+
+  destroyEntities();
+  createPlayer();
+  resetState();
 }
 
 function endGame() {
@@ -69,77 +123,136 @@ function endGame() {
   renderLeaderboard(saveScore(state.score));
 }
 
-function drawBackground() {
-  if (assets.bg.complete && assets.bg.naturalWidth !== 0) {
-    ctx.drawImage(assets.bg, 0, 0, canvas.width, canvas.height);
-    return;
+function updateTime(delta) {
+  const deltaSeconds = delta / 60;
+  state.timeLeft -= deltaSeconds;
+
+  if (state.timeLeft <= 0) {
+    state.timeLeft = 0;
+    timeDisplay.innerText = "0";
+    endGame();
+    return false;
   }
 
-  ctx.fillStyle = "#0a4263";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  timeDisplay.innerText = String(Math.ceil(state.timeLeft));
+  return true;
 }
 
-function updateHud() {
-  scoreDisplay.innerText = state.score;
-  hpDisplay.innerText = state.hp;
+function spawnEntities(delta) {
+  state.spawnTimer += delta;
+
+  getSpawnCategories(state.spawnTimer, delta).forEach((category) => {
+    state.entities.push(new Entity(category, createVisualObject));
+  });
+}
+
+function handleCollision(entity, index) {
+  const result = getCollisionOutcome({
+    category: entity.category,
+    playerWidth: player.width,
+    entityWidth: entity.width,
+    entityArea: entity.width * entity.height,
+    entityScoreValue: entity.config.scoreValue,
+    playerInvincibleTimer: player.invincibleTimer,
+  });
+
+  if (result.removeEntity) {
+    entity.destroy(removeView);
+    state.entities.splice(index, 1);
+  }
+
+  const nextState = applyCollisionResult({
+    score: state.score,
+    hp: state.hp,
+    targetWidth: player.targetWidth,
+    lastRecoveryWidth: player.lastRecoveryWidth,
+    result,
+  });
+
+  state.score = nextState.score;
+  state.hp = nextState.hp;
+  player.targetWidth = nextState.targetWidth;
+  player.invincibleTimer = nextState.invincibleTimer;
+  player.lastRecoveryWidth = nextState.lastRecoveryWidth;
+
+  if (nextState.healedHp) {
+    player.flashHealText();
+  }
+
+  if (result.shouldPlayInteract) {
+    player.playInteractAnimation();
+  }
+
+  if (state.hp <= 0) {
+    endGame();
+  }
 }
 
 function updateEntities() {
   for (let index = state.entities.length - 1; index >= 0; index--) {
     const entity = state.entities[index];
     entity.update();
-    entity.draw(ctx);
 
-    if (checkCollision(state.player, entity)) {
-      const result = resolveEntityCollision({
-        entityType: entity.type,
-        playerArea: state.player.width * state.player.height,
-        entityArea: entity.width * entity.height,
-        playerInvincibleTimer: state.player.invincibleTimer,
-      });
-
-      state.score += result.scoreDelta;
-      state.hp += result.hpDelta;
-      state.player.targetWidth += result.targetWidthDelta;
-      state.player.invincibleTimer = result.nextInvincibleTimer;
-
-      if (result.removeEntity) {
-        state.entities.splice(index, 1);
-      }
-
-      if (state.hp <= 0) {
-        endGame();
+    if (checkCollision(player, entity)) {
+      handleCollision(entity, index);
+      if (state.isGameOver) {
         return;
       }
     } else if (entity.isOffScreen()) {
+      entity.destroy(removeView);
       state.entities.splice(index, 1);
     }
   }
 }
 
-function spawnEntities() {
-  state.spawnTimer++;
-
-  getSpawnTypes(state.spawnTimer).forEach((type) => {
-    state.entities.push(new Entity(type, assets));
-  });
-}
-
-function gameLoop() {
+function gameLoop(delta) {
   if (state.isGameOver) {
     return;
   }
 
-  drawBackground();
-  spawnEntities();
-  state.player.update(keys);
-  state.player.draw(ctx);
-  updateEntities();
-  updateHud();
+  if (!updateTime(delta)) {
+    return;
+  }
 
-  if (!state.isGameOver) {
-    requestAnimationFrame(gameLoop);
+  spawnEntities(delta);
+  player.update(keys, state.hp);
+  updateEntities();
+  player.updateHpBar(state.hp);
+
+  if (scoreDisplay) {
+    scoreDisplay.text = String(state.score);
   }
 }
 
-startGame();
+function loadGame() {
+  const allUrls = collectAssetUrls(GAME_CONFIG);
+
+  PIXI.Assets.load(allUrls, updateLoadingText)
+    .then((resources) => {
+      loadedResources = resources;
+      loadingScreen.style.display = "none";
+      if (loadingText) {
+        loadingText.innerText = "";
+      }
+
+      const bgSprite = createBackground(resources[GAME_CONFIG.bgUrl], {
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
+      });
+      app.stage.addChildAt(bgSprite, 0);
+
+      scoreDisplay = createScoreDisplay(app, resources[GAME_CONFIG.scoreUIUrl]);
+      createVisualObject = createVisualObjectFactory(app, resources);
+
+      app.ticker.add(gameLoop);
+      startGame();
+    })
+    .catch((error) => {
+      console.error("加载资源出错, 请检查路径:", error);
+      if (loadingText) {
+        loadingText.innerText = "加载失败，请按 F12 查看报错";
+      }
+    });
+}
+
+loadGame();

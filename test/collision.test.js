@@ -6,8 +6,8 @@ import { checkCollision } from "../src/systems/collision.js";
 test("checkCollision returns true for overlapping rectangles", () => {
   assert.equal(
     checkCollision(
-      { x: 0, y: 0, width: 100, height: 100 },
-      { x: 50, y: 50, width: 40, height: 40 },
+      { logicalX: 100, logicalY: 100, width: 100, height: 100 },
+      { logicalX: 130, logicalY: 130, width: 40, height: 40 },
     ),
     true,
   );
@@ -16,8 +16,8 @@ test("checkCollision returns true for overlapping rectangles", () => {
 test("checkCollision returns false for separated rectangles", () => {
   assert.equal(
     checkCollision(
-      { x: 0, y: 0, width: 100, height: 100 },
-      { x: 101, y: 0, width: 40, height: 40 },
+      { logicalX: 100, logicalY: 100, width: 100, height: 100 },
+      { logicalX: 200, logicalY: 100, width: 40, height: 40 },
     ),
     false,
   );
