@@ -47,6 +47,10 @@ function detectSpineVersion(version) {
   return 0;
 }
 
+function isSupportedVersionString(version) {
+  return /^\d+\.\d+(?:\.\d+)?$/.test(version);
+}
+
 function readVersionOldFormat(data) {
   const input = new BinaryInput(data);
   try {
@@ -116,11 +120,20 @@ async function loadSpineResource(url) {
   ]);
 
   const data = new Uint8Array(binaryData);
-  const version = detectSpineVersion(readVersionNewFormat(data) || readVersionOldFormat(data));
+  const oldVersion = readVersionOldFormat(data);
+  const newVersion = readVersionNewFormat(data);
+  const versionString = isSupportedVersionString(oldVersion)
+    ? oldVersion
+    : isSupportedVersionString(newVersion)
+      ? newVersion
+      : "";
+  const version = detectSpineVersion(versionString);
   const parser = createBinaryParser(atlas, version);
 
   if (!parser) {
-    throw new Error(`Unsupported spine version for ${url}`);
+    throw new Error(
+      `Unsupported spine version for ${url}: ${versionString || "unknown"}`,
+    );
   }
 
   return {
