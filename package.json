@@ -1,0 +1,21 @@
+{
+  "name": "aegir-fish-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test",
+    "validate": "node scripts/validate-project.mjs",
+    "check": "npm run test && npm run validate && npm run build"
+  },
+  "dependencies": {
+    "pixi-spine": "^4.0.4",
+    "pixi.js": "^7.3.2"
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
+  }
+}
