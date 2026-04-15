@@ -6,11 +6,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules/@pixi-spine") || id.includes("node_modules/pixi-spine")) {
-            return "spine-vendor";
-          }
-
-          if (id.includes("node_modules/@pixi") || id.includes("node_modules/pixi.js")) {
+          if (
+            id.includes("node_modules/@pixi-spine") ||
+            id.includes("node_modules/pixi-spine") ||
+            id.includes("node_modules/@pixi") ||
+            id.includes("node_modules/pixi.js")
+          ) {
             return "pixi-vendor";
           }
         },
