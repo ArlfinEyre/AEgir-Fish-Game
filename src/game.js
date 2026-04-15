@@ -1,16 +1,17 @@
 import { collectAssetUrls, updateLoadingText } from "./assets.js";
 import {
-  ENTITY_CATEGORIES,
+  FIXED_TIMESTEP_MS,
   GAME_CONFIG,
   GAME_HEIGHT,
   GAME_WIDTH,
   INITIAL_HP,
   INITIAL_SCORE,
   INITIAL_TIME_LEFT,
-  PLAYER_INVINCIBILITY_FRAMES,
+  MAX_FRAME_TIME_MS,
 } from "./config.js";
 import { Entity } from "./entities/entity.js";
 import { Player } from "./entities/player.js";
+import { PIXI } from "./runtime/pixi.js";
 import { checkCollision } from "./systems/collision.js";
 import { saveScore } from "./systems/leaderboard.js";
 import {
@@ -46,6 +47,7 @@ let loadedResources = {};
 let createVisualObject;
 let player;
 let scoreDisplay;
+let accumulatedTimeMs = 0;
 
 const state = {
   isGameOver: true,
@@ -87,6 +89,8 @@ function resetState() {
   state.spawnTimer = 0;
   state.timeLeft = INITIAL_TIME_LEFT;
   state.isGameOver = false;
+  accumulatedTimeMs = 0;
+  timeDisplay.innerText = String(INITIAL_TIME_LEFT);
 }
 
 function destroyEntities() {
@@ -205,7 +209,7 @@ function updateEntities() {
   }
 }
 
-function gameLoop(delta) {
+function stepGame(delta) {
   if (state.isGameOver) {
     return;
   }
@@ -221,6 +225,27 @@ function gameLoop(delta) {
 
   if (scoreDisplay) {
     scoreDisplay.text = String(state.score);
+  }
+}
+
+function gameLoop() {
+  if (state.isGameOver) {
+    accumulatedTimeMs = 0;
+    return;
+  }
+
+  accumulatedTimeMs += Math.min(app.ticker.elapsedMS, MAX_FRAME_TIME_MS);
+
+  // Run the simulation at a fixed 60 Hz so browser/frame variance changes
+  // smoothness but not spawn cadence, movement, or overall difficulty.
+  while (accumulatedTimeMs >= FIXED_TIMESTEP_MS) {
+    stepGame(1);
+    accumulatedTimeMs -= FIXED_TIMESTEP_MS;
+
+    if (state.isGameOver) {
+      accumulatedTimeMs = 0;
+      break;
+    }
   }
 }
 

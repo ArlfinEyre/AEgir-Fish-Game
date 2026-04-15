@@ -1,3 +1,5 @@
+import { PIXI, Spine } from "../runtime/pixi.js";
+
 export function createApplication({ width, height }) {
   const app = new PIXI.Application({
     width,
@@ -53,7 +55,7 @@ export function createVisualObjectFactory(app, resources) {
     let view;
 
     if (config.type === "spine") {
-      view = new PIXI.spine.Spine(resource.spineData);
+      view = new Spine(resource.spineData);
       if (view.state.hasAnimation("Move")) {
         view.state.setAnimation(0, "Move", true);
       } else if (view.state.hasAnimation("Default")) {

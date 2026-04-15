@@ -4,6 +4,7 @@ import {
   GAME_CONFIG,
   INITIAL_HP,
 } from "../config.js";
+import { PIXI, Spine } from "../runtime/pixi.js";
 
 export class Player {
   constructor({ createVisualObject, app, hpTextFactory, hpFillFactory, hpBgFactory }) {
@@ -97,7 +98,7 @@ export class Player {
 
   playInteractAnimation() {
     if (
-      this.view instanceof PIXI.spine.Spine &&
+      this.view instanceof Spine &&
       this.view.state.hasAnimation("Interact")
     ) {
       this.view.state.setAnimation(0, "Interact", false);

@@ -1,5 +1,8 @@
 export const GAME_WIDTH = 1920;
 export const GAME_HEIGHT = 1080;
+export const TARGET_FPS = 60;
+export const FIXED_TIMESTEP_MS = 1000 / TARGET_FPS;
+export const MAX_FRAME_TIME_MS = 250;
 export const INITIAL_HP = 5;
 export const INITIAL_SCORE = 0;
 export const INITIAL_TIME_LEFT = 60;
