@@ -7,7 +7,15 @@ import {
 import { PIXI, Spine } from "../runtime/pixi.js";
 
 export class Player {
-  constructor({ createVisualObject, app, hpTextFactory, hpFillFactory, hpBgFactory }) {
+  constructor({
+    createVisualObject,
+    app,
+    hpTextFactory,
+    hpFillFactory,
+    hpBgFactory,
+    initialHp = INITIAL_HP,
+    speedMultiplier = 1,
+  }) {
     this.logicalX = GAME_WIDTH / 2;
     this.logicalY = GAME_HEIGHT / 2;
 
@@ -17,7 +25,6 @@ export class Player {
 
     this.width = GAME_CONFIG.player.baseSize;
     this.targetWidth = this.width;
-    this.lastRecoveryWidth = this.width;
 
     this.ratio = 1;
     const bounds = this.view.getLocalBounds();
@@ -26,14 +33,14 @@ export class Player {
     }
     this.height = this.width * this.ratio;
 
-    this.speed = GAME_CONFIG.player.speed;
+    this.speed = GAME_CONFIG.player.speed * speedMultiplier;
     this.invincibleTimer = 0;
-    this.maxHp = INITIAL_HP;
+    this.maxHp = initialHp;
 
     this.hpContainer = new PIXI.Container();
     this.hpBg = hpBgFactory();
     this.hpFill = hpFillFactory();
-    this.hpText = hpTextFactory(INITIAL_HP, this.maxHp);
+    this.hpText = hpTextFactory(initialHp, this.maxHp);
 
     this.hpContainer.addChild(this.hpBg);
     this.hpContainer.addChild(this.hpFill);

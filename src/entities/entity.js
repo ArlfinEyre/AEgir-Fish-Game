@@ -5,24 +5,71 @@ import {
   GAME_CONFIG,
 } from "../config.js";
 import { getRandomVariant, randomBetween } from "../systems/rules.js";
+import {
+  getDifficultyPreset,
+  getEntitySizeByDifficulty,
+  getEntitySpeedMultiplier,
+  getVariantWeightByDifficulty,
+} from "../systems/difficulty.js";
+
+export function getProgressiveVariant(
+  variants,
+  elapsedSeconds,
+  difficulty,
+  category,
+  rng = Math.random,
+) {
+  if (!variants.length) {
+    return undefined;
+  }
+
+  const weightedVariants = variants.map((variant) => ({
+    ...variant,
+    weight: getVariantWeightByDifficulty(
+      variant,
+      elapsedSeconds,
+      difficulty,
+      category,
+    ),
+  }));
+
+  return getRandomVariant(weightedVariants, rng);
+}
 
 export class Entity {
-  constructor(category, createVisualObject, rng = Math.random) {
+  constructor(
+    category,
+    createVisualObject,
+    rng = Math.random,
+    elapsedSeconds = 0,
+    difficulty = getDifficultyPreset(),
+  ) {
     this.category = category;
     this.rng = rng;
+    this.elapsedSeconds = elapsedSeconds;
+    this.difficulty = difficulty;
 
-    this.config = this.getVariantConfig(category, rng);
+    this.config = this.getVariantConfig(category, rng, elapsedSeconds, difficulty);
     this.spawnAtEdge(rng);
 
     this.view = createVisualObject(this.config);
 
-    const randomLogicalWidth = randomBetween(
-      this.config.minSize,
-      this.config.maxSize,
+    const randomLogicalWidth = getEntitySizeByDifficulty(
+      this.config,
+      elapsedSeconds,
+      difficulty,
+      category,
       rng,
     );
 
-    this.speed = randomBetween(this.config.minSpeed, this.config.maxSpeed, rng);
+    const speedMultiplier = getEntitySpeedMultiplier(
+      elapsedSeconds,
+      difficulty,
+      category,
+    );
+    this.speed =
+      randomBetween(this.config.minSpeed, this.config.maxSpeed, rng) *
+      speedMultiplier;
     this.width = randomLogicalWidth;
 
     const bounds = this.view.getLocalBounds();
@@ -43,16 +90,44 @@ export class Entity {
     this.view.y = this.logicalY;
   }
 
-  getVariantConfig(category, rng) {
+  getVariantConfig(category, rng, elapsedSeconds, difficulty) {
     if (category === ENTITY_CATEGORIES.FISH) {
-      return getRandomVariant(GAME_CONFIG.fishVariants, rng);
+      return getProgressiveVariant(
+        GAME_CONFIG.fishVariants,
+        elapsedSeconds,
+        difficulty,
+        category,
+        rng,
+      );
     }
 
     if (category === ENTITY_CATEGORIES.REWARD) {
-      return getRandomVariant(GAME_CONFIG.rewardVariants, rng);
+      return getProgressiveVariant(
+        GAME_CONFIG.rewardVariants,
+        elapsedSeconds,
+        difficulty,
+        category,
+        rng,
+      );
     }
 
-    return getRandomVariant(GAME_CONFIG.punishVariants, rng);
+    if (category === ENTITY_CATEGORIES.BOSS) {
+      return getProgressiveVariant(
+        GAME_CONFIG.bossVariants,
+        elapsedSeconds,
+        difficulty,
+        category,
+        rng,
+      );
+    }
+
+    return getProgressiveVariant(
+      GAME_CONFIG.punishVariants,
+      elapsedSeconds,
+      difficulty,
+      category,
+      rng,
+    );
   }
 
   spawnAtEdge(rng) {

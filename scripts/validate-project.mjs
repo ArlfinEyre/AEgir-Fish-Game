@@ -5,6 +5,7 @@ const rootDir = process.cwd();
 
 const requiredFiles = [
   "index.html",
+  "game.html",
   "src/game.js",
   "src/entities/player.js",
   "src/entities/entity.js",
@@ -22,10 +23,10 @@ async function ensureFilesExist() {
 }
 
 async function ensureHtmlUsesModuleEntry() {
-  const html = await readFile(path.join(rootDir, "index.html"), "utf8");
+  const html = await readFile(path.join(rootDir, "game.html"), "utf8");
 
   if (!html.includes('type="module"') || !html.includes('src="src/game.js"')) {
-    throw new Error("index.html must load src/game.js as a module entry.");
+    throw new Error("game.html must load src/game.js as a module entry.");
   }
 }
 

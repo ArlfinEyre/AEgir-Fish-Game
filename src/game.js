@@ -1,15 +1,18 @@
 import { loadGameAssets, updateLoadingText } from "./assets.js";
 import {
+  BOSS_COMBAT,
   FIXED_TIMESTEP_MS,
+  GAME_DIFFICULTY_PRESET,
   GAME_CONFIG,
   GAME_HEIGHT,
   GAME_WIDTH,
-  INITIAL_HP,
   INITIAL_SCORE,
   INITIAL_TIME_LEFT,
   MAX_FRAME_TIME_MS,
+  getBossDamagePerHit,
 } from "./config.js";
 import { Entity } from "./entities/entity.js";
+import { Boss } from "./entities/boss.js";
 import { Player } from "./entities/player.js";
 import { checkCollision } from "./systems/collision.js";
 import { saveScore } from "./systems/leaderboard.js";
@@ -18,6 +21,12 @@ import {
   getCollisionOutcome,
 } from "./systems/rules.js";
 import { getSpawnCategories } from "./systems/spawn.js";
+import {
+  DIFFICULTY_PRESET_IDS,
+  getDifficultyPreset,
+  getInitialHpByDifficulty,
+  getPlayerSpeedMultiplier,
+} from "./systems/difficulty.js";
 import {
   createApplication,
   createBackground,
@@ -38,6 +47,65 @@ const leaderboardList = document.getElementById("leaderboard-list");
 const restartButton = document.getElementById("restart-button");
 const loadingScreen = document.getElementById("loading-screen");
 const loadingText = document.getElementById("loading-text");
+const exitMenuBtn = document.getElementById("exit-menu-btn");
+const exitConfirmOverlay = document.getElementById("exit-confirm-overlay");
+const exitConfirmText = document.getElementById("exit-confirm-text");
+const exitConfirmYes = document.getElementById("exit-confirm-yes");
+const exitConfirmCancel = document.getElementById("exit-confirm-cancel");
+const urlParams = new URLSearchParams(window.location.search);
+
+function resolveDifficultyPresetId() {
+  const requestedPreset = urlParams.get("difficulty");
+  if (requestedPreset && DIFFICULTY_PRESET_IDS.includes(requestedPreset)) {
+    return requestedPreset;
+  }
+  return GAME_DIFFICULTY_PRESET;
+}
+
+/** 预览模式仅允许 `?mode=demo&preview=1`（由主页二次确认后进入）。 */
+function resolveStartMode() {
+  const requestedMode = urlParams.get("mode");
+  const preview = urlParams.get("preview") === "1";
+  if (preview && requestedMode === "demo") {
+    return "demo";
+  }
+  return "play";
+}
+
+function hubUrl() {
+  return new URL("index.html", window.location.href).href;
+}
+
+function showExitConfirm() {
+  if (!exitConfirmOverlay || !exitConfirmText) {
+    return;
+  }
+  const midGame = state.mode === "play" && !state.isGameOver;
+  exitConfirmText.textContent = midGame
+    ? "返回主菜单？当前对局进度将不会保存。"
+    : "确定返回小游戏合集主页？";
+  exitConfirmOverlay.classList.add("is-open");
+}
+
+function hideExitConfirm() {
+  exitConfirmOverlay?.classList.remove("is-open");
+}
+
+function goToHub() {
+  window.location.assign(hubUrl());
+}
+
+exitMenuBtn?.addEventListener("click", () => {
+  showExitConfirm();
+});
+
+exitConfirmCancel?.addEventListener("click", () => {
+  hideExitConfirm();
+});
+
+exitConfirmYes?.addEventListener("click", () => {
+  goToHub();
+});
 
 const app = createApplication({ width: GAME_WIDTH, height: GAME_HEIGHT });
 gameWrapper.appendChild(app.view);
@@ -59,14 +127,27 @@ let player;
 let scoreDisplay;
 let accumulatedTimeMs = 0;
 let demoRestartTimeoutId = null;
+const selectedDifficultyPreset = resolveDifficultyPresetId();
+const initialMode = resolveStartMode();
+const lockedEntryMode = initialMode;
+const activeDifficulty = getDifficultyPreset(selectedDifficultyPreset);
+const initialHp = getInitialHpByDifficulty(activeDifficulty);
 
 const state = {
   isGameOver: true,
   mode: "demo",
   score: INITIAL_SCORE,
-  hp: INITIAL_HP,
+  hp: initialHp,
+  maxHp: initialHp,
   entities: [],
+  boss: null,
+  bossSpawned: false,
+  bossDotSecondsLeft: 0,
+  bossDotDamagePerSecond: BOSS_COMBAT.dotDamagePerSecond,
+  bossDotTickAccumulator: 0,
+  bossDamageToBossCooldownFrames: 0,
   spawnTimer: 0,
+  elapsedSeconds: 0,
   timeLeft: INITIAL_TIME_LEFT,
   demoTargetX: GAME_WIDTH / 2,
   demoTargetY: GAME_HEIGHT / 2,
@@ -74,35 +155,25 @@ const state = {
 };
 
 window.addEventListener("keydown", (event) => {
-  const loweredKey = event.key.toLowerCase();
-  const shouldStartGame = loweredKey === "p";
-  const shouldReturnToDemo = event.code === "Escape";
-
-  keys[loweredKey] = true;
-
-  if (shouldStartGame || shouldReturnToDemo) {
+  if (event.code === "Escape") {
     event.preventDefault();
-  }
-
-  if (shouldReturnToDemo && state.mode === "play") {
-    startGame("demo");
+    if (exitConfirmOverlay?.classList.contains("is-open")) {
+      hideExitConfirm();
+      return;
+    }
+    showExitConfirm();
     return;
   }
 
-  if (
-    shouldStartGame &&
-    Object.keys(loadedResources).length > 0 &&
-    (state.mode === "demo" || state.isGameOver)
-  ) {
-    startGame("play");
-  }
+  const loweredKey = event.key.toLowerCase();
+  keys[loweredKey] = true;
 });
 
 window.addEventListener("keyup", (event) => {
   keys[event.key.toLowerCase()] = false;
 });
 
-restartButton.addEventListener("click", () => startGame("play"));
+restartButton.addEventListener("click", () => startGame(lockedEntryMode));
 
 function renderLeaderboard(scores) {
   leaderboardList.innerHTML = "";
@@ -113,8 +184,16 @@ function renderLeaderboard(scores) {
 
 function resetState() {
   state.score = INITIAL_SCORE;
-  state.hp = INITIAL_HP;
+  state.hp = initialHp;
+  state.maxHp = initialHp;
   state.spawnTimer = 0;
+  state.elapsedSeconds = 0;
+  state.bossSpawned = false;
+  state.bossDotSecondsLeft = 0;
+  state.bossDotTickAccumulator = 0;
+  state.bossDotDamagePerSecond = BOSS_COMBAT.dotDamagePerSecond;
+  state.bossDamageToBossCooldownFrames = 0;
+  destroyBoss();
   state.timeLeft = INITIAL_TIME_LEFT;
   state.isGameOver = false;
   accumulatedTimeMs = 0;
@@ -138,10 +217,19 @@ function destroyEntities() {
   state.entities = [];
 }
 
+function destroyBoss() {
+  if (state.boss) {
+    state.boss.destroy(removeView, app);
+    state.boss = null;
+  }
+}
+
 function createPlayer() {
   player = new Player({
     createVisualObject,
     app,
+    initialHp: initialHp,
+    speedMultiplier: getPlayerSpeedMultiplier(activeDifficulty),
     hpBgFactory: createHpBackground,
     hpFillFactory: createHpFill,
     hpTextFactory: createHpText,
@@ -178,6 +266,7 @@ function startGame(mode = "play") {
   }
 
   destroyEntities();
+  destroyBoss();
   createPlayer();
   resetState();
   clearPlayerInput();
@@ -189,6 +278,7 @@ function startGame(mode = "play") {
 
 function endGame() {
   state.isGameOver = true;
+  destroyBoss();
 
   if (state.mode === "demo") {
     scheduleDemoRestart(1200);
@@ -198,7 +288,6 @@ function endGame() {
   gameOverScreen.style.display = "flex";
   finalScoreDisplay.innerText = state.score;
   renderLeaderboard(saveScore(state.score));
-  scheduleDemoRestart(6000);
 }
 
 function updateTime(delta) {
@@ -220,12 +309,94 @@ function updateTime(delta) {
   return true;
 }
 
+function applyBossDot(delta) {
+  if (state.bossDotSecondsLeft <= 0) {
+    state.bossDotTickAccumulator = 0;
+    return;
+  }
+
+  const deltaSeconds = delta / 60;
+  state.bossDotSecondsLeft = Math.max(0, state.bossDotSecondsLeft - deltaSeconds);
+  state.bossDotTickAccumulator += deltaSeconds;
+
+  while (state.bossDotTickAccumulator >= 1) {
+    state.bossDotTickAccumulator -= 1;
+    state.hp = Math.max(0, state.hp - state.bossDotDamagePerSecond);
+    if (state.hp <= 0) {
+      endGame();
+      return;
+    }
+  }
+}
+
 function spawnEntities(delta) {
   state.spawnTimer += delta;
+  state.elapsedSeconds += delta / 60;
 
-  getSpawnCategories(state.spawnTimer, delta).forEach((category) => {
-    state.entities.push(new Entity(category, createVisualObject));
+  getSpawnCategories(
+    state.spawnTimer,
+    delta,
+    state.elapsedSeconds,
+    activeDifficulty,
+  ).forEach((category) => {
+    state.entities.push(
+      new Entity(
+        category,
+        createVisualObject,
+        Math.random,
+        state.elapsedSeconds,
+        activeDifficulty,
+      ),
+    );
   });
+}
+
+function spawnBossIfNeeded() {
+  if (state.bossSpawned || state.mode === "demo" || state.isGameOver) {
+    return;
+  }
+
+  if (
+    state.timeLeft > 0 &&
+    state.timeLeft <= BOSS_COMBAT.spawnWhenTimeLeftSeconds
+  ) {
+    state.bossSpawned = true;
+    state.boss = new Boss({
+      createVisualObject,
+      app,
+      rng: Math.random,
+      elapsedSeconds: state.elapsedSeconds,
+      difficulty: activeDifficulty,
+      initialHp: BOSS_COMBAT.initialHp,
+    });
+  }
+}
+
+function handleBossCollision() {
+  if (!state.boss) {
+    return;
+  }
+
+  if (!checkCollision(player, state.boss)) {
+    return;
+  }
+
+  state.bossDotSecondsLeft = BOSS_COMBAT.dotDurationSeconds;
+  state.bossDotDamagePerSecond = BOSS_COMBAT.dotDamagePerSecond;
+
+  let bossTookFatal = false;
+  if (state.bossDamageToBossCooldownFrames <= 0) {
+    bossTookFatal = state.boss.applyDamage(
+      getBossDamagePerHit(player.width, state.boss.width),
+    );
+    state.bossDamageToBossCooldownFrames = BOSS_COMBAT.damageToBossCooldownFrames;
+  }
+
+  player.playInteractAnimation();
+
+  if (bossTookFatal) {
+    destroyBoss();
+  }
 }
 
 function handleCollision(entity, index) {
@@ -236,6 +407,7 @@ function handleCollision(entity, index) {
     entityArea: entity.width * entity.height,
     entityScoreValue: entity.config.scoreValue,
     playerInvincibleTimer: player.invincibleTimer,
+    difficulty: activeDifficulty,
   });
 
   if (result.removeEntity) {
@@ -246,16 +418,17 @@ function handleCollision(entity, index) {
   const nextState = applyCollisionResult({
     score: state.score,
     hp: state.hp,
+    maxHp: state.maxHp,
     targetWidth: player.targetWidth,
-    lastRecoveryWidth: player.lastRecoveryWidth,
     result,
   });
 
   state.score = nextState.score;
   state.hp = nextState.hp;
+  state.maxHp = nextState.maxHp;
   player.targetWidth = nextState.targetWidth;
   player.invincibleTimer = nextState.invincibleTimer;
-  player.lastRecoveryWidth = nextState.lastRecoveryWidth;
+  player.maxHp = state.maxHp;
 
   if (nextState.healedHp) {
     player.flashHealText();
@@ -380,16 +553,33 @@ function stepGame(delta) {
     return;
   }
 
+  applyBossDot(delta);
+  if (state.isGameOver) {
+    return;
+  }
+
   if (!updateTime(delta)) {
     return;
   }
 
+  spawnBossIfNeeded();
   spawnEntities(delta);
   if (state.mode === "demo") {
     updateDemoTarget();
   }
 
+  player.maxHp = state.maxHp;
   player.update(state.mode === "demo" ? demoKeys : keys, state.hp);
+  if (state.boss) {
+    if (state.bossDamageToBossCooldownFrames > 0) {
+      state.bossDamageToBossCooldownFrames -= 1;
+    }
+    state.boss.update(player);
+    handleBossCollision();
+    if (state.isGameOver) {
+      return;
+    }
+  }
   updateEntities();
   player.updateHpBar(state.hp);
 
@@ -438,7 +628,7 @@ function loadGame() {
       createVisualObject = createVisualObjectFactory(app, resources);
 
       app.ticker.add(gameLoop);
-      startGame("demo");
+      startGame(initialMode);
     })
     .catch((error) => {
       console.error("加载资源出错, 请检查路径:", error);

@@ -20,6 +20,9 @@ function collectAssetConfigs(gameConfig) {
   gameConfig.punishVariants.forEach((variant) => {
     entries.set(variant.url, { type: variant.type, url: variant.url });
   });
+  (gameConfig.bossVariants || []).forEach((variant) => {
+    entries.set(variant.url, { type: variant.type, url: variant.url });
+  });
 
   return Array.from(entries.values());
 }

@@ -3,17 +3,71 @@ export const GAME_HEIGHT = 1080;
 export const TARGET_FPS = 60;
 export const FIXED_TIMESTEP_MS = 1000 / TARGET_FPS;
 export const MAX_FRAME_TIME_MS = 250;
-export const INITIAL_HP = 5;
+export const INITIAL_HP = 1000;
 export const INITIAL_SCORE = 0;
 export const INITIAL_TIME_LEFT = 60;
 export const PLAYER_INVINCIBILITY_FRAMES = 120;
-export const HP_RECOVERY_GROWTH_STEP = 80;
 export const LEADERBOARD_STORAGE_KEY = "fishGameScores";
+export const GAME_DIFFICULTY_PRESET = "normal";
+
+/** Boss fight tuning (see game.js spawn + collision). */
+export const BOSS_COMBAT = {
+  initialHp: 3000,
+  /** ~2.2% of INITIAL_HP per second while DoT active. */
+  dotDamagePerSecond: Math.round(INITIAL_HP * 0.022),
+  dotDurationSeconds: 3.5,
+  /** Frames between player damage applications to the boss while overlapping (60 Hz steps). */
+  damageToBossCooldownFrames: 12,
+  /** playerWidth/bossWidth upper bounds for damageByTier entries. */
+  ratioBreakpoints: [1, 1.5],
+  damageByTier: [24, 72, 130],
+  spawnWhenTimeLeftSeconds: 10,
+};
+
+export function getBossDamagePerHit(playerWidth, bossWidth) {
+  const ratio = bossWidth > 0 ? playerWidth / bossWidth : 0;
+  const { ratioBreakpoints, damageByTier } = BOSS_COMBAT;
+  if (ratio < ratioBreakpoints[0]) {
+    return damageByTier[0];
+  }
+  if (ratio < ratioBreakpoints[1]) {
+    return damageByTier[1];
+  }
+  return damageByTier[2];
+}
 
 export const ENTITY_CATEGORIES = {
   FISH: "fish",
   REWARD: "reward",
   PUNISH: "punish",
+  BOSS: "boss",
+};
+
+export const FISH_HP_WEIGHT_RULES = {
+  sizeTiers: [
+    {
+      id: "small",
+      maxWidth: 80,
+      eatHeal: 0,
+      eatMaxHpGain: 0,
+      failDamage: 50,
+    },
+    {
+      id: "medium",
+      maxWidth: 150,
+      eatHeal: 5,
+      eatMaxHpGain: 2,
+      failDamage: 100,
+    },
+    {
+      id: "large",
+      maxWidth: Number.POSITIVE_INFINITY,
+      eatHeal: 20,
+      eatMaxHpGain: 10,
+      failDamage: 250,
+    },
+  ],
+  punishFailDamage: 150,
 };
 
 export const SPAWN_RULES = [
@@ -98,16 +152,6 @@ export const GAME_CONFIG = {
   punishVariants: [
     {
       type: "spine",
-      url: "assets/punishes/jellyboss/jellyboss.skel",
-      minSize: 180,
-      maxSize: 180,
-      minSpeed: 1,
-      maxSpeed: 1,
-      weight: 40,
-      scoreValue: 0,
-    },
-    {
-      type: "spine",
       url: "assets/punishes/enemy_1152_dsurch_2/enemy_1152_dsurch_2.skel",
       minSize: 100,
       maxSize: 100,
@@ -115,6 +159,18 @@ export const GAME_CONFIG = {
       maxSpeed: 1,
       weight: 60,
       scoreValue: -10,
+    },
+  ],
+  bossVariants: [
+    {
+      type: "spine",
+      url: "assets/punishes/jellyboss/jellyboss.skel",
+      minSize: 180,
+      maxSize: 180,
+      minSpeed: 0.85,
+      maxSpeed: 0.95,
+      weight: 100,
+      scoreValue: 0,
     },
   ],
 };

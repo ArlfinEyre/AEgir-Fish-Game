@@ -3,48 +3,420 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>阿戈尔吃鱼小游戏V2.0</title>
+  <title>小游戏合集</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet">
   <style>
-    body { margin: 0; padding: 0; background-color: #111; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; font-family: sans-serif; }
-    #game-wrapper { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 1920px; max-height: 1080px; background-color: #000; }
-    .ui-layer { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.7); color: white; display: none; z-index: 10; }
-    .ui-layer h1 { font-size: 4vw; margin-bottom: 10px; }
-    .ui-layer p { font-size: 1.5vw; }
-    button { margin-top: 20px; padding: 1vw 3vw; font-size: 1.5vw; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 10px; z-index: 10; }
-    button:hover { background-color: #45a049; }
-    #hud { position: absolute; top: 50px; left: 60px; width: 100%; color: white; font-size: 2vw; font-weight: bold; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; text-align: left; }
-    #loading-screen { display: flex; background: #1a252c; z-index: 20; }
-    canvas {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: contain;
-      border: 2px solid #ecf0f1;
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100vh;
+      background: #ffffff;
+      color: #1a1a1a;
+      font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    }
+    .hub-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px 40px;
+    }
+    .hub-cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: stretch;
+      gap: clamp(16px, 3vw, 40px);
+      width: 100%;
+      max-width: 1100px;
+    }
+    .hub-card {
+      width: clamp(200px, 28vw, 300px);
+      min-height: clamp(380px, 52vh, 520px);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .hub-card--soon {
+      border: 3px solid #7CB342;
+      background: #D9F7BE;
+      justify-content: center;
+      align-items: center;
+      font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+      color: #1a1a1a;
+      font-weight: 500;
+      text-align: center;
+      padding: 16px;
+    }
+    .hub-card--soon-right {
+      border-color: #9E9E9E;
+      background: #D9D9D9;
+    }
+    .hub-card--aegir {
+      border: 4px solid #5B39A8;
+      background: #ffffff;
+      box-shadow: none;
+    }
+    .hub-card-art {
+      flex: 1;
+      min-height: 42%;
+      margin: 14px 14px 0;
+      background: #DDD6FE;
       border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #7C6BA8;
+      font-size: clamp(1rem, 2.5vw, 1.35rem);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+    }
+    .hub-card-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+      display: block;
+    }
+    .hub-card-titles {
+      padding: 18px 14px 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .hub-card-titles .zh {
+      margin: 0 0 10px;
+      font-size: clamp(1.05rem, 2.8vw, 1.35rem);
+      font-weight: 900;
+      color: #5B39A8;
+      line-height: 1.35;
+    }
+    .hub-card-titles .en {
+      margin: 0;
+      font-family: "Press Start 2P", monospace;
+      font-size: clamp(0.38rem, 1vw, 0.5rem);
+      line-height: 2.2;
+      letter-spacing: 0.02em;
+      color: #3d3558;
+      text-transform: uppercase;
+    }
+    .hub-cluster-wrap {
+      padding: 0 12px 18px;
+      margin-top: auto;
+    }
+    .hub-cluster {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      width: 100%;
+      max-width: 100%;
+    }
+    .hub-cluster-side {
+      flex: 0 0 clamp(26px, 7vw, 32px);
+      min-height: 52px;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      background: #6A4CBB;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: filter 0.12s;
+    }
+    .hub-cluster-side:hover {
+      filter: brightness(1.06);
+    }
+    .hub-cluster-side--left {
+      border-radius: 26px 0 0 26px;
+    }
+    .hub-cluster-side--right {
+      border-radius: 0 26px 26px 0;
+    }
+    .hub-cluster-side--left .hub-ico-d {
+      width: 14px;
+      height: 28px;
+      border-radius: 14px 0 0 14px;
+      border: 2px solid rgba(255, 255, 255, 0.95);
+      border-right: none;
+      box-sizing: border-box;
+    }
+    .hub-cluster-side--right .hub-ico-play {
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 9px 0 9px 14px;
+      border-color: transparent transparent transparent rgba(255, 255, 255, 0.95);
+      margin-left: 2px;
+    }
+    .hub-cluster-start {
+      flex: 1;
+      min-width: 0;
+      min-height: 52px;
+      margin: 0;
+      border: 2px solid #ffffff;
+      background: #6A4CBB;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: clamp(0.65rem, 1.8vw, 0.88rem);
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      font-family: "Noto Sans SC", "Arial Black", sans-serif;
+      text-transform: uppercase;
+      transition: filter 0.12s;
+    }
+    .hub-cluster-start:hover {
+      filter: brightness(1.06);
+    }
+    .hub-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.82);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .hub-overlay.is-open { display: flex; }
+    .hub-dialog {
+      background: #ffffff;
+      border: 3px solid #5B39A8;
+      border-radius: 4px;
+      padding: 22px 24px 20px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 8px 28px rgba(91, 57, 168, 0.18);
+    }
+    .hub-dialog h3 {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #5B39A8;
+    }
+    .hub-dialog p {
+      margin: 0 0 18px;
+      color: #333333;
+      line-height: 1.6;
+      font-size: 0.9rem;
+    }
+    .hub-dialog-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .hub-dialog-actions button {
+      border-radius: 2px;
+      padding: 10px 16px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      border: 2px solid #5B39A8;
+      background: #ffffff;
+      color: #5B39A8;
+      font-weight: 700;
+    }
+    .hub-dialog-actions button.primary {
+      background: #6A4CBB;
+      border-color: #6A4CBB;
+      color: #ffffff;
+    }
+    .hub-dialog-actions button:hover {
+      filter: brightness(1.05);
+    }
+    .hub-modal-wide { max-width: 440px; }
+    .hub-form-row { margin-bottom: 14px; }
+    .hub-form-row label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #5B39A8;
+    }
+    .hub-form-row select {
+      width: 100%;
+      border-radius: 2px;
+      border: 2px solid #5B39A8;
+      background: #ffffff;
+      color: #1a1a1a;
+      padding: 10px 12px;
+      font-size: 0.95rem;
     }
   </style>
 </head>
 <body>
+<div class="hub-page">
+  <div class="hub-cards">
+    <section class="hub-card hub-card--soon" aria-label="占位">
+      Coming soon...
+    </section>
 
-<div id="game-wrapper">
-    <div id="loading-screen" class="ui-layer" style="display: flex;">
-        <h1 id="loading-text">资源加载中 (0%)...</h1>
-    </div>
-
-    <div id="hud">
-        剩余时间 Time left: <span id="time-display">60</span>s
-    </div>
-
-    <div id="game-over-screen" class="ui-layer">
-        <h1>游戏结束</h1>
-        <p>本次得分: <span id="final-score">0</span></p>
-        <div id="leaderboard" style="margin-top: 20px; text-align: center;">
-            <h3>排行榜 (Top 5)</h3>
-            <ol id="leaderboard-list" style="text-align: left; font-size: 1.2vw;"></ol>
+    <section class="hub-card hub-card--aegir" aria-label="阿戈尔吃鱼">
+      <div class="hub-card-art" id="hub-card-art">
+        <span>[图片]</span>
+      </div>
+      <div class="hub-card-titles">
+        <p class="zh">阿戈尔吃鱼小游戏</p>
+        <p class="en">AEGIR FISH GAME</p>
+      </div>
+      <div class="hub-cluster-wrap">
+        <div class="hub-cluster">
+          <button type="button" class="hub-cluster-side hub-cluster-side--left" id="hub-btn-advanced" title="高级设置" aria-label="高级设置">
+            <span class="hub-ico-d" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="hub-cluster-start" id="hub-btn-start">GAME START!</button>
+          <button type="button" class="hub-cluster-side hub-cluster-side--right" id="hub-btn-preview" title="预览模式" aria-label="预览模式">
+            <span class="hub-ico-play" aria-hidden="true"></span>
+          </button>
         </div>
-        <button id="restart-button">重新开始 (按空格键)</button>
-    </div>
+      </div>
+    </section>
+
+    <section class="hub-card hub-card--soon hub-card--soon-right" aria-label="占位">
+      Coming soon...
+    </section>
+  </div>
 </div>
 
-<script type="module" src="src/game.js"></script>
+<div class="hub-overlay" id="overlay-advanced-confirm" role="dialog" aria-modal="true" aria-labelledby="adv-confirm-title">
+  <div class="hub-dialog">
+    <h3 id="adv-confirm-title">打开高级设置？</h3>
+    <p>可调整难度等选项；保存后对下一次「GAME START!」生效。</p>
+    <div class="hub-dialog-actions">
+      <button type="button" class="hub-cancel" data-close="overlay-advanced-confirm">取消</button>
+      <button type="button" class="primary" id="adv-confirm-open">打开</button>
+    </div>
+  </div>
+</div>
+
+<div class="hub-overlay" id="overlay-advanced-panel" role="dialog" aria-modal="true" aria-labelledby="adv-panel-title">
+  <div class="hub-dialog hub-modal-wide">
+    <h3 id="adv-panel-title">高级设置</h3>
+    <p>以下设置保存在本机浏览器。</p>
+    <div class="hub-form-row">
+      <label for="hub-difficulty">难度 Difficulty</label>
+      <select id="hub-difficulty" name="difficulty">
+        <option value="easy">Easy</option>
+        <option value="normal">Normal</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+    <div class="hub-dialog-actions">
+      <button type="button" class="hub-cancel" data-close="overlay-advanced-panel">关闭</button>
+      <button type="button" class="primary" id="adv-panel-save">保存并关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="hub-overlay" id="overlay-preview-confirm" role="dialog" aria-modal="true" aria-labelledby="preview-confirm-title">
+  <div class="hub-dialog">
+    <h3 id="preview-confirm-title">进入预览模式？</h3>
+    <p>预览模式为自动演示，与正式计分与排行榜隔离。</p>
+    <div class="hub-dialog-actions">
+      <button type="button" class="hub-cancel" data-close="overlay-preview-confirm">取消</button>
+      <button type="button" class="primary" id="preview-confirm-go">进入预览</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SETTINGS_STORAGE_KEY = "arcadeHubSettings";
+  const GAME_PAGE_PATH = "game.html";
+
+  const difficultySelect = document.getElementById("hub-difficulty");
+  const overlayAdvancedConfirm = document.getElementById("overlay-advanced-confirm");
+  const overlayAdvancedPanel = document.getElementById("overlay-advanced-panel");
+  const overlayPreviewConfirm = document.getElementById("overlay-preview-confirm");
+
+  function saveSettings(settings) {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function openOverlay(el) {
+    el.classList.add("is-open");
+  }
+
+  function closeOverlay(el) {
+    el.classList.remove("is-open");
+  }
+
+  function launchGame({ mode, preview }) {
+    const difficulty = difficultySelect.value;
+    saveSettings({ difficulty, mode, preview: !!preview });
+    const query = new URLSearchParams({ difficulty, mode });
+    if (preview) query.set("preview", "1");
+    window.location.href = `${GAME_PAGE_PATH}?${query.toString()}`;
+  }
+
+  const saved = loadSettings();
+  if (saved?.difficulty && ["easy", "normal", "hard"].includes(saved.difficulty)) {
+    difficultySelect.value = saved.difficulty;
+  }
+
+  document.getElementById("hub-btn-start").addEventListener("click", () => {
+    launchGame({ mode: "play", preview: false });
+  });
+
+  document.getElementById("hub-btn-advanced").addEventListener("click", () => {
+    openOverlay(overlayAdvancedConfirm);
+  });
+
+  document.getElementById("adv-confirm-open").addEventListener("click", () => {
+    closeOverlay(overlayAdvancedConfirm);
+    openOverlay(overlayAdvancedPanel);
+  });
+
+  document.getElementById("adv-panel-save").addEventListener("click", () => {
+    saveSettings({
+      difficulty: difficultySelect.value,
+      mode: "play",
+      preview: false,
+    });
+    closeOverlay(overlayAdvancedPanel);
+  });
+
+  document.getElementById("hub-btn-preview").addEventListener("click", () => {
+    openOverlay(overlayPreviewConfirm);
+  });
+
+  document.getElementById("preview-confirm-go").addEventListener("click", () => {
+    launchGame({ mode: "demo", preview: true });
+  });
+
+  document.querySelectorAll("[data-close]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-close");
+      const el = document.getElementById(id);
+      if (el) closeOverlay(el);
+    });
+  });
+
+  document.querySelectorAll(".hub-overlay").forEach((overlay) => {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeOverlay(overlay);
+    });
+  });
+
+  const artSlot = document.getElementById("hub-card-art");
+  const previewImg = new Image();
+  previewImg.onload = () => {
+    artSlot.textContent = "";
+    artSlot.appendChild(previewImg);
+  };
+  previewImg.onerror = () => {};
+  previewImg.src = "assets/bg.jpg";
+</script>
 </body>
 </html>

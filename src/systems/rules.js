@@ -1,9 +1,12 @@
 import {
   ENTITY_CATEGORIES,
-  HP_RECOVERY_GROWTH_STEP,
-  INITIAL_HP,
   PLAYER_INVINCIBILITY_FRAMES,
 } from "../config.js";
+import {
+  getDifficultyPreset,
+  getFishHpWeightByDifficulty,
+  getPunishDamageByDifficulty,
+} from "./difficulty.js";
 
 export function randomBetween(min, max, rng = Math.random) {
   return rng() * (max - min) + min;
@@ -25,11 +28,11 @@ export function getRandomVariant(variants, rng = Math.random) {
 }
 
 export function calculateGrowth(entityArea) {
-  return Math.sqrt(entityArea) * 0.1;
+  return Math.sqrt(entityArea) * 0.04;
 }
 
-export function shouldRecoverHp(targetWidth, lastRecoveryWidth) {
-  return targetWidth - lastRecoveryWidth >= HP_RECOVERY_GROWTH_STEP;
+export function getFishHpWeightByWidth(entityWidth, difficulty = getDifficultyPreset()) {
+  return getFishHpWeightByDifficulty(entityWidth, difficulty);
 }
 
 export function getCollisionOutcome({
@@ -39,15 +42,18 @@ export function getCollisionOutcome({
   entityArea,
   entityScoreValue,
   playerInvincibleTimer,
+  difficulty = getDifficultyPreset(),
 }) {
   const canTakeDamage = playerInvincibleTimer <= 0;
 
   if (category === ENTITY_CATEGORIES.FISH) {
+    const fishWeight = getFishHpWeightByWidth(entityWidth, difficulty);
     if (playerWidth * 1.2 >= entityWidth) {
       return {
         removeEntity: true,
         scoreDelta: entityScoreValue || 10,
-        hpDelta: 0,
+        hpDelta: fishWeight.eatHeal,
+        maxHpDelta: fishWeight.eatMaxHpGain,
         targetWidthDelta: calculateGrowth(entityArea),
         nextInvincibleTimer: playerInvincibleTimer,
         shouldGrow: true,
@@ -58,7 +64,8 @@ export function getCollisionOutcome({
     return {
       removeEntity: false,
       scoreDelta: 0,
-      hpDelta: canTakeDamage ? -1 : 0,
+      hpDelta: canTakeDamage ? -fishWeight.failDamage : 0,
+      maxHpDelta: 0,
       targetWidthDelta: 0,
       nextInvincibleTimer: canTakeDamage
         ? PLAYER_INVINCIBILITY_FRAMES
@@ -73,6 +80,7 @@ export function getCollisionOutcome({
       removeEntity: true,
       scoreDelta: entityScoreValue,
       hpDelta: 0,
+      maxHpDelta: 0,
       targetWidthDelta: 0,
       nextInvincibleTimer: playerInvincibleTimer,
       shouldGrow: false,
@@ -83,7 +91,8 @@ export function getCollisionOutcome({
   return {
     removeEntity: true,
     scoreDelta: entityScoreValue,
-    hpDelta: canTakeDamage ? -1 : 0,
+    hpDelta: canTakeDamage ? -getPunishDamageByDifficulty(difficulty) : 0,
+    maxHpDelta: 0,
     targetWidthDelta: 0,
     nextInvincibleTimer: canTakeDamage
       ? PLAYER_INVINCIBILITY_FRAMES
@@ -96,24 +105,19 @@ export function getCollisionOutcome({
 export function applyCollisionResult({
   score,
   hp,
+  maxHp,
   targetWidth,
-  lastRecoveryWidth,
   result,
 }) {
+  const nextMaxHp = Math.max(1, maxHp + (result.maxHpDelta || 0));
   const nextState = {
     score: score + result.scoreDelta,
-    hp: hp + result.hpDelta,
+    hp: Math.max(0, Math.min(hp + result.hpDelta, nextMaxHp)),
+    maxHp: nextMaxHp,
     targetWidth: targetWidth + (result.targetWidthDelta || 0),
     invincibleTimer: result.nextInvincibleTimer,
-    lastRecoveryWidth,
-    healedHp: false,
+    healedHp: (result.hpDelta || 0) > 0,
   };
-
-  if (shouldRecoverHp(nextState.targetWidth, lastRecoveryWidth)) {
-    nextState.hp = Math.min(nextState.hp + 1, INITIAL_HP);
-    nextState.lastRecoveryWidth = nextState.targetWidth;
-    nextState.healedHp = true;
-  }
 
   return nextState;
 }
